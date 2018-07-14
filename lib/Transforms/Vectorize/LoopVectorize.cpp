@@ -465,9 +465,14 @@ protected:
                     Value *CountRoundDown, Value *EndValue,
                     BasicBlock *MiddleBlock);
 
+  /// Figure what the new induction DebugLoc should be. Use OldInduction's
+  /// DL if it exists, else try and find the induction phi from the
+  /// original loop's BasicBlock and use that.
+  DebugLoc getInductionDL();
+
   /// Create a new induction variable inside L.
   PHINode *createInductionVariable(Loop *L, Value *Start, Value *End,
-                                   Value *Step, Instruction *DL);
+                                   Value *Step, DebugLoc OldInductionDL);
 
   /// Handle all cross-iteration phis in the header.
   void fixCrossIterationPHIs();
@@ -2558,9 +2563,29 @@ void InnerLoopVectorizer::scalarizeInstruction(Instruction *Instr,
     PredicatedInstructions.push_back(Cloned);
 }
 
-PHINode *InnerLoopVectorizer::createInductionVariable(Loop *L, Value *Start,
-                                                      Value *End, Value *Step,
-                                                      Instruction *DL) {
+DebugLoc InnerLoopVectorizer::getInductionDL() {
+  DebugLoc DL;
+  // OldInduction could be nullptr in the following cases:
+  //   - No induction found.
+  //   - Induction exists but is not the same type as the wider instruction.
+  if (!OldInduction) {
+    // Try to find the induction phi from the original loop.
+    BasicBlock *OldBB = OrigLoop->getHeader();
+    for (const auto &phi : OldBB->phis()) {
+      if (Legal->isInductionPhi(&phi)) {
+        DL = phi.getDebugLoc();
+        break;
+      }
+    }
+    // TOOD: Handle case when there is no OldInduction at all.
+  } else {
+    DL = getDebugLocFromInstOrOperands(OldInduction)->getDebugLoc();
+  }
+  return DL;
+}
+
+PHINode *InnerLoopVectorizer::createInductionVariable(
+    Loop *L, Value *Start, Value *End, Value *Step, DebugLoc OldInductionDL) {
   BasicBlock *Header = L->getHeader();
   BasicBlock *Latch = L->getLoopLatch();
   // As we're just creating this loop, it's possible no latch exists
@@ -2569,12 +2594,11 @@ PHINode *InnerLoopVectorizer::createInductionVariable(Loop *L, Value *Start,
     Latch = Header;
 
   IRBuilder<> Builder(&*Header->getFirstInsertionPt());
-  Instruction *OldInst = getDebugLocFromInstOrOperands(OldInduction);
-  setDebugLocFromInst(Builder, OldInst);
+  Builder.SetCurrentDebugLocation(OldInductionDL);
   auto *Induction = Builder.CreatePHI(Start->getType(), 2, "index");
 
   Builder.SetInsertPoint(Latch->getTerminator());
-  setDebugLocFromInst(Builder, OldInst);
+  Builder.SetCurrentDebugLocation(OldInductionDL);
 
   // Create i+1 and fill the PHINode.
   Value *Next = Builder.CreateAdd(Induction, Step, "index.next");
@@ -2891,9 +2915,8 @@ BasicBlock *InnerLoopVectorizer::createVectorizedLoopSkeleton() {
   // times the unroll factor (num of SIMD instructions).
   Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
   Constant *Step = ConstantInt::get(IdxTy, VF * UF);
-  Induction =
-      createInductionVariable(Lp, StartIdx, CountRoundDown, Step,
-                              getDebugLocFromInstOrOperands(OldInduction));
+  Induction = createInductionVariable(Lp, StartIdx, CountRoundDown, Step,
+                                      getInductionDL());
 
   // We are going to resume the execution of the scalar loop.
   // Go over all of the induction variables that we found and fix the

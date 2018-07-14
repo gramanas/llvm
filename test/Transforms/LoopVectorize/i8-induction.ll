@@ -10,7 +10,9 @@ define void @f() nounwind uwtable ssp {
 ; Check that the induction phis and adds have debug location.
 ;
 ; DEBUGLOC-LABEL: vector.body:
-; DEBUGLOC:         %vec.ind = phi {{.*}}, !dbg ![[DbgLoc:[0-9]+]]
+; DEBUGLOC:         %index = phi {{.*}}, !dbg ![[DbgLoc:[0-9]+]]
+; DEBUGLOC:         %vec.ind = phi {{.*}}, !dbg ![[DbgLoc]]
+; DEBUGLOC:         %index.next = add {{.*}}, !dbg ![[DbgLoc]]
 ; DEBUGLOC:         %vec.ind.next = add {{.*}}, !dbg ![[DbgLoc]]
 
 scalar.ph:
