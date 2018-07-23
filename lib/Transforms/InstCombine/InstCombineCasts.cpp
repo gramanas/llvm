@@ -294,8 +294,10 @@ Instruction *InstCombiner::commonCastTransforms(CastInst &CI) {
     // legal type.
     if (!Src->getType()->isIntegerTy() || !CI.getType()->isIntegerTy() ||
         shouldChangeType(CI.getType(), Src->getType()))
-      if (Instruction *NV = foldOpIntoPhi(CI, PN))
+      if (Instruction *NV = foldOpIntoPhi(CI, PN)) {
+        replaceAllDbgUsesWith(*PN, *NV, CI, DT);
         return NV;
+      }
   }
 
   return nullptr;
