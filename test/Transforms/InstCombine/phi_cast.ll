@@ -17,6 +17,8 @@ exit:
 ;; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[phi]], {{.*}}, metadata !DIExpression())
   %phi = phi i1 [ false, %entry ], [ %condB, %then ]
   %zext = zext i1 %phi to i32
-  call void asm sideeffect "", "r"(i32 %zext)
-  ret i32 %zext
+  %call = call i32 (i32) @foo(i32 %zext)                  ; Use of the cast.
+  ret i32 %call
 }
+
+declare dso_local i32 @foo(i32)

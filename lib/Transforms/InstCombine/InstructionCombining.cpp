@@ -936,6 +936,7 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
 
   // Okay, we can do the transformation: create the new PHI node.
   PHINode *NewPN = PHINode::Create(I.getType(), PN->getNumIncomingValues());
+  replaceAllDbgUsesWith(I, *NewPN, *PN, DT);
   InsertNewInstBefore(NewPN, *PN);
   NewPN->takeName(PN);
 

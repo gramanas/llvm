@@ -295,7 +295,7 @@ Instruction *InstCombiner::commonCastTransforms(CastInst &CI) {
     if (!Src->getType()->isIntegerTy() || !CI.getType()->isIntegerTy() ||
         shouldChangeType(CI.getType(), Src->getType()))
       if (Instruction *NV = foldOpIntoPhi(CI, PN)) {
-        replaceAllDbgUsesWith(*PN, *NV, CI, DT);
+        replaceAllDbgUsesWith(CI, *NV, CI, DT);
         return NV;
       }
   }
@@ -1057,7 +1057,7 @@ Instruction *InstCombiner::visitZExt(ZExtInst &CI) {
     return nullptr;
 
   // If one of the common conversion will work, do it.
-  if (Instruction *Result = commonCastTransforms(CI))
+  if (Instruction *Result = commonCastTransforms(CI)) 
     return Result;
 
   Value *Src = CI.getOperand(0);
